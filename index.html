@@ -2,12 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LipHydrate AI</title>
+    <title>LipHydrate AI - Professional Lip Health Analysis</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
   </head>
-  <body>
+  <body class="bg-slate-50">
     <div id="root"></div>
-    <!-- This line is the most important one! -->
+    
+    <!-- 
+      CRITICAL: This path must match your file structure exactly. 
+      If your code is in the 'src' folder and named 'App.jsx', 
+      this line is correct.
+    -->
     <script type="module" src="/src/App.jsx"></script>
   </body>
 </html>
