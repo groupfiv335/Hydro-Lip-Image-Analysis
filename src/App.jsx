@@ -5,27 +5,19 @@ import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged }
 import { getFirestore, collection, doc, addDoc, onSnapshot, query, deleteDoc, Timestamp } from 'firebase/firestore';
 
 // --- Configuration & Constants ---
-const getApiKey = () => {
-  try {
-    // Accessing the Vite environment variable
-    return import.meta.env.VITE_GEMINI_API_KEY || "";
-  } catch (e) {
-    return ""; 
-  }
-};
-
-const apiKey = getApiKey();
+// HARDCODED API KEY FOR IMMEDIATE FIX
+const apiKey = "AIzaSyDCIth7LpAAm_-F5b2i-xg6Js5DSg5yk_A";
 const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
 
 // --- FIREBASE CONFIGURATION ---
-// 1. Replace the object below with your actual config from Firebase Console
+// IMPORTANT: You still need to paste your actual Firebase object here from the Firebase Console
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  apiKey: "YOUR_FIREBASE_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
   projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "000000000000",
+  appId: "1:000000000000:web:abcdefg"
 };
 
 // --- Initializing Firebase Safely ---
@@ -34,7 +26,6 @@ const appId = 'lip-health-app-v1';
 
 const initFirebase = () => {
   try {
-    // Basic check to see if user replaced the placeholders
     if (firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("YOUR_")) {
       if (!getApps().length) {
         app = initializeApp(firebaseConfig);
@@ -45,10 +36,8 @@ const initFirebase = () => {
       db = getFirestore(app);
       return true;
     }
-    console.warn("Firebase placeholders detected. History will not be saved.");
     return false;
   } catch (e) {
-    console.error("Firebase init error:", e);
     return false;
   }
 };
@@ -89,7 +78,6 @@ const App = () => {
   useEffect(() => {
     if (!user || !db || !firebaseIsReady) return;
     setLoadingHistory(true);
-    // Standard path for your private user data
     const historyRef = collection(db, 'users', user.uid, 'lip_history');
     
     const unsubscribe = onSnapshot(historyRef, (snapshot) => {
@@ -98,7 +86,6 @@ const App = () => {
       setHistory(sorted);
       setLoadingHistory(false);
     }, (err) => {
-      console.error("Firestore error:", err);
       setLoadingHistory(false);
     });
     return () => unsubscribe();
@@ -125,7 +112,7 @@ const App = () => {
         }
       }, 300);
     } catch (err) {
-      setError("Camera access denied. Please check site permissions.");
+      setError("Camera access denied.");
     }
   };
 
@@ -157,11 +144,6 @@ const App = () => {
 
   const analyzeLipHealth = async () => {
     if (!image) return;
-    if (!apiKey) {
-      setError("Gemini API Key missing. Please set VITE_GEMINI_API_KEY in Vercel settings.");
-      return;
-    }
-
     setIsAnalyzing(true);
     setError(null);
 
@@ -171,13 +153,15 @@ const App = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: "Analyze the hydration level and health of these lips. Be professional and dermatological." }, { inlineData: { mimeType: "image/png", data: base64Image } }] }],
+          contents: [{ parts: [{ text: "Analyze lip hydration." }, { inlineData: { mimeType: "image/png", data: base64Image } }] }],
           systemInstruction: { parts: [{ text: "Return JSON: { dehydration_status, metrics: { crack_intensity, dryness_level, moisture_score }, summary, recommendations: [] }" }] },
           generationConfig: { responseMimeType: "application/json" }
         })
       });
 
       const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      
       const parsed = JSON.parse(data.candidates[0].content.parts[0].text);
       setResult(parsed);
       setStep(3);
@@ -188,7 +172,7 @@ const App = () => {
         });
       }
     } catch (err) {
-      setError("AI Analysis failed. Ensure the photo is clear and try again.");
+      setError("Analysis failed: " + err.message);
     } finally {
       setIsAnalyzing(false);
     }
@@ -216,15 +200,15 @@ const App = () => {
             {step === 1 && (
               <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800 text-center space-y-6">
                 <div className="space-y-2">
-                  <h1 className="text-3xl font-black">Analyze Your Lips</h1>
-                  <p className="text-slate-500">Instant AI feedback on hydration and health</p>
+                  <h1 className="text-3xl font-black italic">Lip Scan</h1>
+                  <p className="text-slate-500">Check your hydration levels instantly.</p>
                 </div>
                 <div className="flex flex-col gap-4">
-                  <button onClick={startCamera} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold flex items-center justify-center gap-3 shadow-lg hover:bg-blue-700 transition-all">
+                  <button onClick={startCamera} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold flex items-center justify-center gap-3 shadow-lg active:scale-95 transition-transform">
                     <Camera className="w-6 h-6" /> Take Photo
                   </button>
-                  <label className="w-full py-4 border-2 border-slate-200 dark:border-slate-800 rounded-2xl font-bold cursor-pointer flex items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
-                    <Upload className="w-5 h-5" /> Upload Image
+                  <label className="w-full py-4 border-2 border-slate-200 dark:border-slate-800 rounded-2xl font-bold cursor-pointer flex items-center justify-center gap-3">
+                    <Upload className="w-5 h-5" /> Upload Photo
                     <input type="file" className="hidden" accept="image/*" onChange={(e) => {
                       const file = e.target.files[0];
                       if (file) {
@@ -239,37 +223,34 @@ const App = () => {
             )}
 
             {isCameraOpen && (
-              <div className="relative rounded-[2rem] overflow-hidden bg-black aspect-[3/4] shadow-2xl">
+              <div className="relative rounded-[2rem] overflow-hidden bg-black aspect-[3/4] shadow-2xl border-4 border-white/10">
                 <video ref={videoRef} autoPlay playsInline muted className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`} />
                 <div className="absolute inset-x-0 bottom-8 flex justify-center items-center gap-6">
-                  <button onClick={stopCamera} className="w-12 h-12 bg-white/10 backdrop-blur-md text-white rounded-full">✕</button>
-                  <button onClick={capturePhoto} className="w-20 h-20 bg-white rounded-full border-[6px] border-white/20 active:scale-95 transition-all" />
-                  <button onClick={() => setFacingMode(f => f === 'user' ? 'environment' : 'user')} className="w-12 h-12 bg-white/10 text-white rounded-full flex items-center justify-center"><FlipHorizontal className="w-5 h-5" /></button>
+                  <button onClick={stopCamera} className="w-12 h-12 bg-white/20 backdrop-blur-md text-white rounded-full">✕</button>
+                  <button onClick={capturePhoto} className="w-20 h-20 bg-white rounded-full border-[6px] border-blue-600/30 active:scale-90 transition-all" />
+                  <button onClick={() => setFacingMode(f => f === 'user' ? 'environment' : 'user')} className="w-12 h-12 bg-white/20 text-white rounded-full flex items-center justify-center"><FlipHorizontal className="w-5 h-5" /></button>
                 </div>
               </div>
             )}
 
             {image && !result && (
-              <div className="bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl border border-slate-100 dark:border-slate-800">
+              <div className="bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl border border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in-95">
                 <img src={image} className="w-full aspect-[4/3] object-cover" alt="Capture" />
                 <div className="p-6 space-y-4">
                   <button onClick={analyzeLipHealth} disabled={isAnalyzing} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg disabled:opacity-50 flex items-center justify-center gap-3">
                     {isAnalyzing ? <RefreshCcw className="animate-spin w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
-                    {isAnalyzing ? "Analyzing Details..." : "Start Analysis"}
+                    {isAnalyzing ? "Analyzing..." : "Confirm & Analyze"}
                   </button>
-                  <button onClick={reset} className="w-full text-slate-400 font-semibold text-sm">Discard and Retake</button>
+                  <button onClick={reset} className="w-full text-slate-400 font-semibold text-sm">Retake Photo</button>
                 </div>
               </div>
             )}
 
             {result && (
-              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-5">
+              <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
                 <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800">
-                  <div className="mb-6">
-                    <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">Assessment</span>
-                    <h2 className="text-3xl font-black mt-1">{result.dehydration_status}</h2>
-                  </div>
-                  <p className="text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">"{result.summary}"</p>
+                  <h2 className="text-3xl font-black mb-2 text-blue-600">{result.dehydration_status}</h2>
+                  <p className="text-slate-600 dark:text-slate-400 mb-8 leading-relaxed italic">"{result.summary}"</p>
                   <div className="grid grid-cols-3 gap-3">
                     {Object.entries(result.metrics).map(([key, value]) => (
                       <div key={key} className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl text-center border border-slate-100 dark:border-slate-700">
@@ -279,47 +260,36 @@ const App = () => {
                     ))}
                   </div>
                 </div>
-                
-                <div className="bg-slate-900 text-white p-6 rounded-[2rem] shadow-lg">
-                  <h3 className="font-bold flex items-center gap-2 mb-3"><Info className="w-4 h-4" /> Recommendations</h3>
-                  <ul className="space-y-2">
-                    {result.recommendations.map((r, i) => (
-                      <li key={i} className="text-sm opacity-80 flex gap-2"><span>•</span> {r}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <button onClick={reset} className="w-full py-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl font-bold hover:bg-slate-50 transition-all">New Scan</button>
+                <button onClick={reset} className="w-full py-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl font-bold hover:bg-slate-50 transition-colors">Start New Analysis</button>
               </div>
             )}
 
-            {error && <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-sm font-bold flex items-center gap-3 border border-red-100"><AlertCircle /> {error}</div>}
+            {error && (
+              <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl text-xs font-mono leading-tight flex items-start gap-3">
+                <AlertCircle className="shrink-0 w-4 h-4 mt-0.5" /> 
+                <div>
+                  <p className="font-bold mb-1 underline uppercase">Developer Log:</p>
+                  {error}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
-            <h2 className="text-2xl font-black mb-6">Scan History</h2>
-            {!firebaseIsReady && (
-              <div className="p-6 bg-amber-50 text-amber-700 rounded-2xl text-sm font-medium border border-amber-100">
-                Firebase config is missing. History cannot be saved or loaded.
-              </div>
-            )}
+            <h2 className="text-2xl font-black mb-6">Past Scans</h2>
             {loadingHistory ? <RefreshCcw className="animate-spin mx-auto text-slate-300" /> : history.length === 0 ? (
-              <p className="text-center text-slate-400 py-20 font-medium italic">No history yet.</p>
+              <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-[2rem] border border-dashed border-slate-200">
+                <History className="w-12 h-12 mx-auto mb-4 text-slate-200" />
+                <p className="text-slate-400 font-medium">No scan history found.</p>
+              </div>
             ) : history.map(item => (
               <div key={item.id} className="bg-white dark:bg-slate-900 p-4 rounded-2xl flex items-center gap-4 border border-slate-100 dark:border-slate-800 shadow-sm">
-                <img src={item.thumbnail} className="w-16 h-16 rounded-xl object-cover" alt="Thumb" />
+                <img src={item.thumbnail} className="w-16 h-16 rounded-xl object-cover" alt="Scan" />
                 <div className="flex-1">
                   <p className="font-bold">{item.dehydration_status}</p>
-                  <p className="text-xs text-slate-400">{item.timestamp?.toDate().toLocaleDateString()} at {item.timestamp?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                  <p className="text-xs text-slate-400">{item.timestamp?.toDate().toLocaleDateString()}</p>
                 </div>
-                <button 
-                  onClick={async () => {
-                    if (confirm("Delete this entry?")) {
-                      await deleteDoc(doc(db, 'users', user.uid, 'lip_history', item.id));
-                    }
-                  }}
-                  className="p-2 text-slate-300 hover:text-red-500"
-                >
+                <button onClick={() => deleteDoc(doc(db, 'users', user.uid, 'lip_history', item.id))} className="p-2 text-slate-300 hover:text-red-500 transition-colors">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
